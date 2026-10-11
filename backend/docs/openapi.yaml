@@ -1,0 +1,308 @@
+openapi: 3.0.3
+info:
+  title: Email Campaign Management System API
+  version: 1.0.0
+  description: >
+    RESTful API for creating email campaigns, dispatching asynchronous simulated email delivery jobs,
+    monitoring per-recipient statuses, and listing campaign overviews.
+servers:
+  - url: http://localhost:8000/api
+    description: Local Docker / Artisan development server
+
+paths:
+  /campaigns:
+    post:
+      summary: Create a campaign and queue recipient sending
+      description: >
+        Creates a new campaign and persists recipient-tracking records within an atomic database transaction.
+        Recipient emails are validated for RFC compliance and checked for case-insensitive duplicates.
+        Upon transaction commit, background jobs are queued for asynchronous simulated delivery.
+      operationId: createCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCampaignRequest'
+      responses:
+        '201':
+          description: Campaign successfully created and processing queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCampaignResponse'
+        '422':
+          description: Validation error (missing fields, invalid email format, or duplicate recipients)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '429':
+          description: Too many requests (rate limit exceeded)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List campaigns
+      description: Returns all campaigns ordered newest first by creation timestamp.
+      operationId: listCampaigns
+      responses:
+        '200':
+          description: List of campaigns retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CampaignSummary'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /campaigns/{id}:
+    get:
+      summary: Retrieve campaign details
+      description: Returns full campaign details including recipient-level delivery statuses and sent timestamps.
+      operationId: getCampaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Numeric ID of the campaign
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Campaign details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CampaignDetail'
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Campaign not found
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CampaignStatus:
+      type: string
+      description: Overall campaign status
+      enum:
+        - queued
+        - processing
+        - done
+      example: queued
+
+    EmailJobStatus:
+      type: string
+      description: >
+        Individual recipient delivery status. Jobs being processed are exposed as pending;
+        processing is an internal queue state.
+      enum:
+        - pending
+        - sent
+        - failed
+      example: pending
+
+    CreateCampaignRequest:
+      type: object
+      required:
+        - name
+        - subject
+        - body
+        - recipient_emails
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: Spring Sale 2026
+        subject:
+          type: string
+          maxLength: 255
+          example: 50% Off This Weekend!
+        body:
+          type: string
+          maxLength: 10000
+          example: Discover our curated seasonal offers across all categories.
+        recipient_emails:
+          type: array
+          minItems: 1
+          maxItems: 500
+          uniqueItems: true
+          description: Array of valid email addresses. Must not contain case-insensitive duplicates.
+          items:
+            type: string
+            format: email
+          example:
+            - alice@example.com
+            - bob@example.com
+
+    CreateCampaignResponse:
+      type: object
+      required:
+        - campaign_id
+        - recipient_count
+        - status
+      properties:
+        campaign_id:
+          type: integer
+          example: 1
+        recipient_count:
+          type: integer
+          example: 2
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+
+    CampaignSummary:
+      type: object
+      required:
+        - id
+        - name
+        - subject
+        - recipient_count
+        - status
+        - created_at
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Spring Sale 2026
+        subject:
+          type: string
+          example: 50% Off This Weekend!
+        recipient_count:
+          type: integer
+          example: 2
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-10-11T08:30:00Z'
+
+    RecipientDetail:
+      type: object
+      required:
+        - id
+        - email
+        - status
+        - sent_at
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        status:
+          $ref: '#/components/schemas/EmailJobStatus'
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-10-11T08:31:00Z'
+
+    CampaignDetail:
+      type: object
+      required:
+        - id
+        - name
+        - subject
+        - body
+        - recipient_count
+        - status
+        - created_at
+        - recipients
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Spring Sale 2026
+        subject:
+          type: string
+          example: 50% Off This Weekend!
+        body:
+          type: string
+          example: Discover our curated seasonal offers across all categories.
+        recipient_count:
+          type: integer
+          example: 2
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-10-11T08:30:00Z'
+        recipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipientDetail'
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - error
+        - details
+      properties:
+        error:
+          type: string
+          example: Invalid input
+        details:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            name:
+              - The name field is required.
+            recipient_emails.1:
+              - Duplicate recipient email addresses are not allowed.
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: Campaign not found

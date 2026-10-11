@@ -1,0 +1,380 @@
+{
+  "info": {
+    "_postman_id": "7f8b9c0d-1234-4567-89ab-cdef01234567",
+    "name": "Email Campaign Management System API",
+    "description": "Complete test suite for Email Campaign Management System (Laravel 12 REST API). Tests cover campaign creation, validation errors (missing fields, duplicate emails, invalid RFC formats), listing campaigns, retrieving campaign details with recipient jobs, and 404 error responses.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "createdCampaignId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Create Campaign - Success",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test(\"Response has valid campaign_id and status\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"campaign_id\");",
+              "    pm.expect(jsonData.campaign_id).to.be.a(\"number\");",
+              "    pm.expect(jsonData).to.have.property(\"recipient_count\", 3);",
+              "    pm.expect(jsonData).to.have.property(\"status\", \"queued\");",
+              "    ",
+              "    // Save campaign_id to collection variable for subsequent tests",
+              "    pm.collectionVariables.set(\"createdCampaignId\", jsonData.campaign_id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Test Campaign\",\n  \"subject\": \"Postman Special Announcement\",\n  \"body\": \"This campaign was created as part of the automated Postman integration test suite.\",\n  \"recipient_emails\": [\n    \"postman.user1@example.com\",\n    \"postman.user2@example.com\",\n    \"postman.user3@example.com\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/campaigns",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "campaigns"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Campaign - Validation Error (Empty Payload)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422 Unprocessable Entity\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Returns formatted error details for required fields\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"error\", \"Invalid input\");",
+              "    pm.expect(jsonData).to.have.property(\"details\");",
+              "    pm.expect(jsonData.details).to.have.property(\"name\");",
+              "    pm.expect(jsonData.details).to.have.property(\"subject\");",
+              "    pm.expect(jsonData.details).to.have.property(\"body\");",
+              "    pm.expect(jsonData.details).to.have.property(\"recipient_emails\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/campaigns",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "campaigns"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Create Campaign - Validation Error (Duplicate Emails)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422 Unprocessable Entity\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Rejects duplicate emails with case-insensitive check\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"error\", \"Invalid input\");",
+              "    pm.expect(jsonData.details).to.have.property(\"recipient_emails.1\");",
+              "    pm.expect(jsonData.details[\"recipient_emails.1\"][0]).to.include(\"Duplicate recipient email\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Duplicate Email Campaign\",\n  \"subject\": \"Testing Duplicates\",\n  \"body\": \"Checking case-insensitive duplicate validation.\",\n  \"recipient_emails\": [\n    \"duplicate@example.com\",\n    \"DUPLICATE@EXAMPLE.COM\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/campaigns",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "campaigns"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Create Campaign - Validation Error (Invalid Email Format)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422 Unprocessable Entity\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Reports RFC format error on invalid recipient email\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"error\", \"Invalid input\");",
+              "    pm.expect(jsonData.details).to.have.property(\"recipient_emails.0\");",
+              "    pm.expect(jsonData.details[\"recipient_emails.0\"][0]).to.include(\"valid email\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Invalid Format Campaign\",\n  \"subject\": \"Testing Invalid Email\",\n  \"body\": \"Body text.\",\n  \"recipient_emails\": [\n    \"not-an-email\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/campaigns",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "campaigns"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. List Campaigns - Success",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has data envelope array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"data\");",
+              "    pm.expect(jsonData.data).to.be.an(\"array\");",
+              "    pm.expect(jsonData.data.length).to.be.at.least(1);",
+              "});",
+              "",
+              "pm.test(\"Campaign items contain expected properties\", function () {",
+              "    var item = pm.response.json().data[0];",
+              "    pm.expect(item).to.have.property(\"id\");",
+              "    pm.expect(item).to.have.property(\"name\");",
+              "    pm.expect(item).to.have.property(\"subject\");",
+              "    pm.expect(item).to.have.property(\"recipient_count\");",
+              "    pm.expect(item).to.have.property(\"status\");",
+              "    pm.expect(item).to.have.property(\"created_at\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/campaigns",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "campaigns"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. Get Campaign Details - Success",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Campaign detail matches created campaign\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"data\");",
+              "    var campaign = jsonData.data;",
+              "    ",
+              "    var targetId = pm.collectionVariables.get(\"createdCampaignId\");",
+              "    pm.expect(String(campaign.id)).to.eql(String(targetId));",
+              "    pm.expect(campaign).to.have.property(\"name\", \"Postman Test Campaign\");",
+              "    pm.expect(campaign).to.have.property(\"body\");",
+              "    pm.expect(campaign).to.have.property(\"recipient_count\", 3);",
+              "    pm.expect(campaign).to.have.property(\"recipients\");",
+              "    pm.expect(campaign.recipients).to.be.an(\"array\").with.lengthOf(3);",
+              "});",
+              "",
+              "pm.test(\"Recipients include id, email, status, and sent_at\", function () {",
+              "    var recipient = pm.response.json().data.recipients[0];",
+              "    pm.expect(recipient).to.have.property(\"id\");",
+              "    pm.expect(recipient).to.have.property(\"email\");",
+              "    pm.expect(recipient).to.have.property(\"status\");",
+              "    pm.expect(recipient).to.have.property(\"sent_at\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/campaigns/{{createdCampaignId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "campaigns",
+            "{{createdCampaignId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. Get Campaign Details - 404 Not Found",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 404 Not Found\", function () {",
+              "    pm.response.to.have.status(404);",
+              "});",
+              "",
+              "pm.test(\"Returns error object with Campaign not found message\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"error\", \"Campaign not found\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/campaigns/99999999",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "campaigns",
+            "99999999"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

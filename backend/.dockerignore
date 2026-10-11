@@ -1,0 +1,14 @@
+.git
+.github
+.env
+vendor
+node_modules
+frontend/node_modules
+frontend/dist
+frontend/.angular
+npm-debug.log
+.phpunit.result.cache
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
