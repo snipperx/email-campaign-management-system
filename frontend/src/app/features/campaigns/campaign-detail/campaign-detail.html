@@ -1,0 +1,49 @@
+<a routerLink="/campaigns" class="text-decoration-none small">&larr; All campaigns</a>
+
+<app-error-alert [message]="error()" [retryable]="true" (retry)="load()" />
+
+@if (loading()) {
+  <app-loading-spinner label="Loading campaign..." />
+} @else if (campaign(); as c) {
+  <div class="d-flex justify-content-between align-items-start mt-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1">{{ c.name }}</h1>
+      <div class="text-secondary small">Created {{ c.created_at | date: 'medium' }}</div>
+    </div>
+    <app-status-badge [status]="c.status" />
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="small text-secondary">Subject</div>
+      <p class="fw-semibold">{{ c.subject }}</p>
+      <div class="small text-secondary">Body</div>
+      <p class="mb-0" style="white-space: pre-wrap">{{ c.body }}</p>
+    </div>
+  </div>
+
+  <div class="d-flex gap-3 mb-3" data-testid="counts">
+    <span><strong>{{ counts().sent }}</strong> sent</span>
+    <span><strong>{{ counts().pending }}</strong> pending</span>
+    <span><strong>{{ counts().failed }}</strong> failed</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th scope="col">Recipient</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (recipient of c.recipients; track recipient.email) {
+          <tr>
+            <td>{{ recipient.email }}</td>
+            <td><app-status-badge [status]="recipient.status" /></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

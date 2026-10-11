@@ -1,0 +1,15 @@
+<nav class="navbar navbar-expand navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" routerLink="/campaigns">Campaign Manager</a>
+    <div class="navbar-nav">
+      <a class="nav-link" routerLink="/campaigns" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        Campaigns
+      </a>
+      <a class="nav-link" routerLink="/campaigns/new" routerLinkActive="active">New campaign</a>
+    </div>
+  </div>
+</nav>
+
+<main class="container py-4">
+  <router-outlet />
+</main>

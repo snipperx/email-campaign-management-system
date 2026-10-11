@@ -1,0 +1,114 @@
+<a routerLink="/campaigns" class="text-decoration-none small">&larr; All campaigns</a>
+<h1 class="h3 mt-2 mb-4">New campaign</h1>
+
+@if (created(); as result) {
+  <div class="alert alert-success" role="alert" data-testid="success">
+    Campaign #{{ result.campaign_id }} created with {{ result.recipient_count }}
+    {{ result.recipient_count === 1 ? 'recipient' : 'recipients' }}.
+    <a [routerLink]="['/campaigns', result.campaign_id]" class="alert-link">View campaign</a>
+  </div>
+}
+
+<app-error-alert [message]="submitError()" />
+
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <div class="mb-3">
+    <label for="name" class="form-label">Campaign name</label>
+    <input
+      id="name"
+      type="text"
+      class="form-control"
+      formControlName="name"
+      [class.is-invalid]="showError(form.controls.name)"
+    />
+    @if (showError(form.controls.name)) {
+      <div class="invalid-feedback d-block" data-testid="name-error">
+        @if (form.controls.name.errors?.['server']; as message) {
+          {{ message }}
+        } @else if (form.controls.name.errors?.['required']) {
+          Campaign name is required.
+        } @else {
+          Campaign name must be 255 characters or fewer.
+        }
+      </div>
+    }
+  </div>
+
+  <div class="mb-3">
+    <label for="subject" class="form-label">Subject</label>
+    <input
+      id="subject"
+      type="text"
+      class="form-control"
+      formControlName="subject"
+      [class.is-invalid]="showError(form.controls.subject)"
+    />
+    @if (showError(form.controls.subject)) {
+      <div class="invalid-feedback d-block" data-testid="subject-error">
+        @if (form.controls.subject.errors?.['server']; as message) {
+          {{ message }}
+        } @else if (form.controls.subject.errors?.['required']) {
+          Subject is required.
+        } @else {
+          Subject must be 255 characters or fewer.
+        }
+      </div>
+    }
+  </div>
+
+  <div class="mb-3">
+    <label for="body" class="form-label">Body</label>
+    <textarea
+      id="body"
+      rows="6"
+      class="form-control"
+      formControlName="body"
+      [class.is-invalid]="showError(form.controls.body)"
+    ></textarea>
+    @if (showError(form.controls.body)) {
+      <div class="invalid-feedback d-block" data-testid="body-error">
+        @if (form.controls.body.errors?.['server']; as message) {
+          {{ message }}
+        } @else if (form.controls.body.errors?.['required']) {
+          Body is required.
+        } @else {
+          Body must be 10,000 characters or fewer.
+        }
+      </div>
+    }
+  </div>
+
+  <div class="mb-4">
+    <label for="recipients" class="form-label">Recipients</label>
+    <textarea
+      id="recipients"
+      rows="6"
+      class="form-control font-monospace"
+      placeholder="One email address per line"
+      formControlName="recipients"
+      [class.is-invalid]="showError(form.controls.recipients)"
+    ></textarea>
+    <div class="form-text">{{ recipientCount() }} {{ recipientCount() === 1 ? 'address' : 'addresses' }}</div>
+    @if (showError(form.controls.recipients)) {
+      <div class="invalid-feedback d-block" data-testid="recipients-error">
+        @let errors = form.controls.recipients.errors;
+        @if (errors?.['server']; as message) {
+          {{ message }}
+        } @else if (errors?.['required']) {
+          Add at least one email address.
+        } @else if (errors?.['invalidEmails']; as invalid) {
+          Invalid email address: {{ invalid.join(', ') }}
+        } @else if (errors?.['duplicateEmails']; as duplicates) {
+          Duplicate email address: {{ duplicates.join(', ') }}
+        }
+      </div>
+    }
+  </div>
+
+  <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+    @if (submitting()) {
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+    }
+    Create campaign
+  </button>
+</form>

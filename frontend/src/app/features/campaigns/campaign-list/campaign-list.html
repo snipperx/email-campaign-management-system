@@ -1,0 +1,43 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Campaigns</h1>
+  <a routerLink="/campaigns/new" class="btn btn-primary">New campaign</a>
+</div>
+
+<app-error-alert [message]="error()" [retryable]="true" (retry)="load()" />
+
+@if (loading()) {
+  <app-loading-spinner label="Loading campaigns..." />
+} @else if (campaigns().length === 0 && !error()) {
+  <app-empty-state title="No campaigns yet" hint="Create your first campaign to get started.">
+    <a routerLink="/campaigns/new" class="btn btn-outline-primary btn-sm">Create campaign</a>
+  </app-empty-state>
+} @else if (campaigns().length > 0) {
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Subject</th>
+          <th scope="col" class="text-end">Recipients</th>
+          <th scope="col">Status</th>
+          <th scope="col">Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (campaign of campaigns(); track campaign.id) {
+          <tr>
+            <td>
+              <a [routerLink]="['/campaigns', campaign.id]" class="fw-semibold text-decoration-none">
+                {{ campaign.name }}
+              </a>
+            </td>
+            <td>{{ campaign.subject }}</td>
+            <td class="text-end">{{ campaign.recipient_count }}</td>
+            <td><app-status-badge [status]="campaign.status" /></td>
+            <td class="text-nowrap">{{ campaign.created_at | date: 'medium' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
