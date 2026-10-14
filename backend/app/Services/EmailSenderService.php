@@ -19,6 +19,8 @@ class EmailSenderService
             'email_job_id' => $emailJob->id,
             'campaign_id' => $emailJob->campaign_id,
             'recipient' => $emailJob->recipient_email,
+            // A real provider receives this as its idempotency key so a resend after a crash is deduplicated
+            'idempotency_key' => 'email-job-'.$emailJob->id,
         ]);
 
         // If the email address explicitly designates a simulated failure (useful for tests and demo)

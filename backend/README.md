@@ -43,6 +43,8 @@ Laravel REST API (port 8000)
 - **Laravel Actions Pattern:** Business logic is encapsulated into single-responsibility actions (`CreateCampaignAction`, `ProcessEmailRecipientAction`, `RecalculateCampaignStatusAction`) keeping controllers thin.
 - **Database Consistency:** Campaigns and their recipient records are persisted inside a database transaction. Queue jobs are dispatched using `.afterCommit()` so workers never pick up uncommitted records.
 - **Atomic Concurrency Protection:** Queue workers claim records using conditional atomic queries (`status = 'pending'`), preventing duplicate processing across workers.
+- **Idempotent Campaign Creation:** `POST /api/campaigns` accepts an optional `Idempotency-Key` header. Retrying with the same key and payload replays the stored response (header `Idempotent-Replayed: true`) for 24 hours instead of creating a duplicate campaign; a different payload returns `422`, and a key still in flight returns `409`. Expired keys are removed by the scheduled `model:prune` command.
+- **Idempotent Workers:** Retries may only reclaim a recipient record they claimed themselves (`claim_token` = queue job UUID), terminal failures never overwrite a `sent` record, and campaign status only moves forward (`queued → processing → done`) so concurrent workers cannot leave it stale. `(campaign_id, recipient_email)` is unique at the database level.
 - **API Documentation:** Formal OpenAPI 3.0 specification maintained at [`docs/openapi.yaml`](docs/openapi.yaml).
 - **Security & Rate Limiting:** IP rate limiting (`throttle:campaigns`), bounded recipient payloads (`min:1, max:500`), Eloquent parameterised queries, and mass-assignment protection.
 
@@ -286,4 +288,4 @@ npx newman run postman/Email_Campaign_System.postman_collection.json --environme
 1. **Simulated Email Provider:** Email delivery is simulated in `EmailSenderService` rather than calling an external third-party API, matching the assessment requirements.
 2. **Case-Insensitive Deduplication:** Duplicate email addresses in requests are rejected with HTTP 422 rather than silently stripped, alerting API consumers of data anomalies.
 3. **Queue Granularity:** Exactly one job is dispatched per recipient, enabling fine-grained retries and individual failure isolation.
-4. **Known Concurrency Limitation:** Atomic claiming prevents competing workers from picking up the same pending record. However, if a worker crashes midway after sending an email but before writing the status, it requires recovery; an enterprise transactional outbox is omitted in favour of assessment scope.
+4. **Known Concurrency Limitation:** Atomic claiming prevents competing workers from picking up the same pending record. However, if a worker crashes after sending an email but before writing the status, the retry sends it again (at-least-once delivery). The sender exposes a stable per-recipient idempotency key (`email-job-{id}`) that a real provider would use to deduplicate such resends.

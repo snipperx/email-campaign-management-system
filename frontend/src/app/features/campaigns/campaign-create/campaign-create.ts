@@ -4,9 +4,10 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@
 import { RouterLink } from '@angular/router';
 
 import { parseApiError } from '../../../core/models/api-error.model';
-import { CreateCampaignResponse } from '../../../core/models/campaign-detail.model';
+import { CreateCampaignRequest, CreateCampaignResponse } from '../../../core/models/campaign-detail.model';
 import { CampaignApiService } from '../../../core/services/campaign-api.service';
 import { ErrorAlert } from '../../../shared/components/error-alert/error-alert';
+import { newIdempotencyKey } from '../../../shared/utils/idempotency-key';
 import { parseRecipients } from '../../../shared/utils/recipients';
 import { noDuplicateRecipientsValidator } from '../../../shared/validators/duplicate-email.validator';
 import { notBlankValidator, recipientEmailsValidator } from '../../../shared/validators/email.validator';
@@ -32,6 +33,9 @@ export class CampaignCreate {
   protected readonly submitError = signal<string | null>(null);
   protected readonly submitted = signal(false);
   protected readonly submitting = signal(false);
+
+  /** Idempotency key of the last submission that has not succeeded yet. */
+  private pendingSubmission: { fingerprint: string; key: string } | null = null;
 
   protected readonly form = this.fb.group({
     name: ['', [notBlankValidator, Validators.maxLength(255)]],
@@ -60,17 +64,19 @@ export class CampaignCreate {
     }
 
     const value = this.form.getRawValue();
+    const payload: CreateCampaignRequest = {
+      name: value.name.trim(),
+      subject: value.subject.trim(),
+      body: value.body.trim(),
+      recipient_emails: parseRecipients(value.recipients),
+    };
     this.submitting.set(true);
 
     this.api
-      .createCampaign({
-        name: value.name.trim(),
-        subject: value.subject.trim(),
-        body: value.body.trim(),
-        recipient_emails: parseRecipients(value.recipients),
-      })
+      .createCampaign(payload, this.idempotencyKeyFor(payload))
       .subscribe({
         next: (response) => {
+          this.pendingSubmission = null;
           this.created.set(response);
           this.submitting.set(false);
           this.submitted.set(false);
@@ -83,6 +89,15 @@ export class CampaignCreate {
           this.submitting.set(false);
         },
       });
+  }
+
+  /** Re-submitting an unchanged payload (e.g. after a timeout) reuses its key; any edit starts a new one. */
+  private idempotencyKeyFor(payload: CreateCampaignRequest): string {
+    const fingerprint = JSON.stringify(payload);
+    if (this.pendingSubmission?.fingerprint !== fingerprint) {
+      this.pendingSubmission = { fingerprint, key: newIdempotencyKey() };
+    }
+    return this.pendingSubmission.key;
   }
 
   private applyServerErrors(fieldErrors: Record<string, string>): void {

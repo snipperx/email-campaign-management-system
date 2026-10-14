@@ -33,10 +33,18 @@ final class RecalculateCampaignStatusAction
             $newStatus = $hasStarted ? CampaignStatus::Processing : CampaignStatus::Queued;
         }
 
-        if ($campaign->status !== $newStatus) {
-            $campaign->forceFill(['status' => $newStatus])->save();
-        }
+        // Conditional forward-only update: a worker holding a stale view can never
+        // overwrite a status computed by a worker that finished after it
+        Campaign::query()
+            ->whereKey($campaign->getKey())
+            ->whereIn('status', $newStatus->precedingValues())
+            ->update([
+                'status' => $newStatus->value,
+                'updated_at' => now(),
+            ]);
 
-        return $newStatus;
+        $campaign->refresh();
+
+        return $campaign->status;
     }
 }

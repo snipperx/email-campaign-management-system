@@ -78,7 +78,7 @@ describe('CampaignCreate', () => {
       subject: '50% off',
       body: 'Great deals',
       recipient_emails: ['a@test.com', 'b@test.com'],
-    });
+    }, expect.any(String));
     const success = el.querySelector('[data-testid="success"]')?.textContent ?? '';
     expect(success).toContain('#12');
     expect(success).toContain('2 recipients');
@@ -99,5 +99,30 @@ describe('CampaignCreate', () => {
 
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('Invalid input');
     expect(el.querySelector('[data-testid="subject-error"]')?.textContent).toContain('Subject is required');
+  });
+
+  it('reuses the idempotency key when an unchanged submission is retried', async () => {
+    createCampaign.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })));
+    fillValidForm();
+    await submit();
+
+    createCampaign.mockReturnValueOnce(of({ campaign_id: 3, recipient_count: 2, status: 'queued' }));
+    await submit();
+
+    const [firstKey, secondKey] = createCampaign.mock.calls.map((call) => call[1]);
+    expect(firstKey).toEqual(expect.any(String));
+    expect(secondKey).toBe(firstKey);
+  });
+
+  it('uses a new idempotency key when the payload changes', async () => {
+    createCampaign.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
+    fillValidForm();
+    await submit();
+
+    setValue('#name', 'Summer Sale');
+    await submit();
+
+    const [firstKey, secondKey] = createCampaign.mock.calls.map((call) => call[1]);
+    expect(secondKey).not.toBe(firstKey);
   });
 });

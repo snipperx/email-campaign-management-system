@@ -17,7 +17,17 @@ paths:
         Creates a new campaign and persists recipient-tracking records within an atomic database transaction.
         Recipient emails are validated for RFC compliance and checked for case-insensitive duplicates.
         Upon transaction commit, background jobs are queued for asynchronous simulated delivery.
+        Supply an `Idempotency-Key` header to make retries safe: a repeated request with the same key and
+        payload replays the original response (for 24 hours) instead of creating a duplicate campaign.
       operationId: createCampaign
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Client-generated unique key (e.g. a UUID), 1-255 characters.
+          schema:
+            type: string
+            maxLength: 255
       requestBody:
         required: true
         content:
@@ -26,17 +36,32 @@ paths:
               $ref: '#/components/schemas/CreateCampaignRequest'
       responses:
         '201':
-          description: Campaign successfully created and processing queued
+          description: >
+            Campaign successfully created and processing queued. Replayed responses carry the
+            `Idempotent-Replayed: true` header.
+          headers:
+            Idempotent-Replayed:
+              description: Present with value `true` when the response was replayed for a repeated Idempotency-Key.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CreateCampaignResponse'
         '422':
-          description: Validation error (missing fields, invalid email format, or duplicate recipients)
+          description: >
+            Validation error (missing fields, invalid email format, duplicate recipients, invalid
+            Idempotency-Key, or an Idempotency-Key reused with a different payload)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+        '409':
+          description: A request with the same Idempotency-Key is still being processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           description: Too many requests (rate limit exceeded)
           content:

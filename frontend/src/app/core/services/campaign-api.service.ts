@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
@@ -26,8 +26,10 @@ export class CampaignApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  createCampaign(payload: CreateCampaignRequest): Observable<CreateCampaignResponse> {
-    return this.http.post<CreateCampaignResponse>(`${this.baseUrl}/campaigns`, payload);
+  /** Pass the same idempotencyKey when retrying a submission so the API cannot create it twice. */
+  createCampaign(payload: CreateCampaignRequest, idempotencyKey?: string): Observable<CreateCampaignResponse> {
+    const headers = idempotencyKey ? new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) : undefined;
+    return this.http.post<CreateCampaignResponse>(`${this.baseUrl}/campaigns`, payload, { headers });
   }
 
   getCampaign(id: number | string): Observable<CampaignDetail> {

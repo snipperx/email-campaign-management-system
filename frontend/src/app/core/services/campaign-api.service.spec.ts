@@ -73,6 +73,15 @@ describe('CampaignApiService', () => {
     req.flush({ campaign_id: 1, recipient_count: 1, status: 'queued' }, { status: 201, statusText: 'Created' });
   });
 
+  it('createCampaign() sends the Idempotency-Key header when given', () => {
+    const payload = { name: 'N', subject: 'S', body: 'B', recipient_emails: ['a@test.com'] };
+    service.createCampaign(payload, 'key-123').subscribe();
+
+    const req = http.expectOne(`${BASE}/campaigns`);
+    expect(req.request.headers.get('Idempotency-Key')).toBe('key-123');
+    req.flush({ campaign_id: 1, recipient_count: 1, status: 'queued' }, { status: 201, statusText: 'Created' });
+  });
+
   it('surfaces validation errors from a 422', () => {
     let error: unknown;
     service
